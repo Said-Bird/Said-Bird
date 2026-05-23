@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24
     ALLOWED_ORIGINS: str = "*"
     GEMINI_API_KEY: str = ""
+    BASE_URL: str = "http://localhost:8000"
 
     def get_origins(self) -> list[str]:
         if self.ALLOWED_ORIGINS == "*":
