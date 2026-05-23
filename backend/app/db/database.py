@@ -5,7 +5,9 @@ from app.core.config import settings
 
 engine = create_engine(
     settings.DATABASE_URL,
-    connect_args={"check_same_thread": False},  # SQLite only
+    pool_size=3,
+    max_overflow=0,
+    pool_pre_ping=True,  # 끊긴 연결 자동 감지
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
