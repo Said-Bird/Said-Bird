@@ -25,6 +25,7 @@ export default function TestPage() {
   const recogRef = useRef<any>(null);
   const isRecordingRef = useRef(false);
   const restartCountRef = useRef(0);
+  const finalTextRef = useRef("");
 
   // 이미지 로딩
   useEffect(() => {
@@ -87,15 +88,20 @@ export default function TestPage() {
 
     const recog = new SpeechRecognition();
     recog.lang = "ko-KR";
-    recog.interimResults = false;
+    recog.interimResults = true;
     recog.continuous = true;
-    let full = "";
+    finalTextRef.current = "";
 
     recog.onresult = (e: any) => {
+      let interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) full += e.results[i][0].transcript + " ";
+        if (e.results[i].isFinal) {
+          finalTextRef.current += e.results[i][0].transcript + " ";
+        } else {
+          interim += e.results[i][0].transcript;
+        }
       }
-      setTranscript(full.trim());
+      setTranscript((finalTextRef.current + interim).trim());
     };
 
     recog.onstart = () => { restartCountRef.current = 0; };
@@ -149,14 +155,15 @@ export default function TestPage() {
   };
 
   const handleSubmit = async () => {
-    if (!transcript.trim()) {
+    const finalTranscript = finalTextRef.current.trim() || transcript.trim();
+    if (!finalTranscript) {
       setError("녹음된 내용이 없어요. 다시 시도해주세요.");
       return;
     }
     setPhase("submitting");
     try {
       await analyzeTranscript({
-        transcript,
+        transcript: finalTranscript,
         image_id: imageId,
         duration_seconds: duration,
       });
