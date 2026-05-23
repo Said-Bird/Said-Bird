@@ -103,6 +103,14 @@ export default function TestPage() {
     const blob = new Blob(chunks, { type: mimeType });
     const ext = mimeType.includes("ogg") ? "ogg" : mimeType.includes("mp4") ? "mp4" : "webm";
 
+    console.log("[audio] mimeType:", mimeType, "size:", blob.size, "bytes", "chunks:", chunks.length);
+
+    // 녹음 확인용 임시 재생 (개발용)
+    const audioUrl = URL.createObjectURL(blob);
+    const audio = new Audio(audioUrl);
+    audio.play().catch(() => {});
+    setTimeout(() => URL.revokeObjectURL(audioUrl), 10000);
+
     const formData = new FormData();
     formData.append("audio", blob, `recording.${ext}`);
     if (imageId) formData.append("image_id", imageId);
