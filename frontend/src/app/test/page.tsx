@@ -18,6 +18,7 @@ export default function TestPage() {
   const [error, setError] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageId, setImageId] = useState<string>("unknown");
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
 
   const mediaRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -69,7 +70,13 @@ export default function TestPage() {
 
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
+      });
     } catch {
       setError("마이크 권한이 필요해요. 브라우저 설정에서 마이크를 허용해 주세요.");
       return;
@@ -86,8 +93,18 @@ export default function TestPage() {
   };
 
   const stopRecording = () => {
-    mediaRef.current?.stop();
-    mediaRef.current?.stream.getTracks().forEach((t) => t.stop());
+    const recorder = mediaRef.current;
+    if (!recorder) return;
+
+    recorder.onstop = () => {
+      const mimeType = recorder.mimeType || "audio/webm";
+      const blob = new Blob(chunksRef.current, { type: mimeType });
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+      setAudioUrl(URL.createObjectURL(blob));
+    };
+
+    recorder.stop();
+    recorder.stream.getTracks().forEach((t) => t.stop());
     setPhase("recorded");
   };
 
@@ -102,14 +119,6 @@ export default function TestPage() {
     const mimeType = mediaRef.current?.mimeType || "audio/webm";
     const blob = new Blob(chunks, { type: mimeType });
     const ext = mimeType.includes("ogg") ? "ogg" : mimeType.includes("mp4") ? "mp4" : "webm";
-
-    console.log("[audio] mimeType:", mimeType, "size:", blob.size, "bytes", "chunks:", chunks.length);
-
-    // 녹음 확인용 임시 재생 (개발용)
-    const audioUrl = URL.createObjectURL(blob);
-    const audio = new Audio(audioUrl);
-    audio.play().catch(() => {});
-    setTimeout(() => URL.revokeObjectURL(audioUrl), 10000);
 
     const formData = new FormData();
     formData.append("audio", blob, `recording.${ext}`);
@@ -136,6 +145,8 @@ export default function TestPage() {
 
   const reset = () => {
     chunksRef.current = [];
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    setAudioUrl(null);
     setDuration(0);
     setError(null);
     setPhase("ready");
@@ -214,11 +225,13 @@ export default function TestPage() {
             </div>
           )}
 
-          {/* 녹음 완료 안내 */}
+          {/* 녹음 완료 + 재생 */}
           {phase === "recorded" && (
             <div className="transcript-box" aria-live="polite">
               <p className="transcript-label">✅ 녹음 완료</p>
-              <p className="transcript-text">분석 결과 보기를 눌러주세요.</p>
+              {audioUrl && (
+                <audio controls src={audioUrl} style={{ width: "100%", marginTop: 8 }} />
+              )}
             </div>
           )}
 
