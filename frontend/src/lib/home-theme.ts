@@ -61,8 +61,14 @@ export const HOME_BASE_STYLES = `
 
   .header-action:hover { background: #FFE4D0; }
 
-  .user-greeting {
+  .user-area {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     flex-shrink: 0;
+  }
+
+  .user-greeting {
     font-size: 15px;
     font-weight: 700;
     color: #1A1A1A;
@@ -70,6 +76,28 @@ export const HOME_BASE_STYLES = `
   }
 
   .user-greeting span { color: #EA580C; }
+
+  .btn-logout {
+    flex-shrink: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #888888;
+    background: white;
+    border: 1px solid #E8E0D8;
+    border-radius: 999px;
+    padding: 0 14px;
+    min-height: 48px;
+    cursor: pointer;
+    font-family: 'Noto Sans KR', sans-serif;
+    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .btn-logout:hover {
+    background: #FFF5F0;
+    border-color: #EA580C;
+    color: #EA580C;
+  }
 
   .hero-card {
     background: white;
@@ -212,6 +240,6 @@ export const HOME_BASE_STYLES = `
   @media (max-width: 380px) {
     .btn-primary { font-size: 18px; padding: 20px; }
     .hero-title { font-size: 24px; }
-    .user-greeting, .header-action { font-size: 14px; }
+    .user-greeting, .header-action, .btn-logout { font-size: 14px; }
   }
 `;

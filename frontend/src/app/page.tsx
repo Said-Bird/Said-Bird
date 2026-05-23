@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getUserName, isLoggedIn } from "@/lib/auth";
+import { clearAuth, getUserName, isLoggedIn } from "@/lib/auth";
 import { HOME_BASE_STYLES, HOME_FONT_IMPORT } from "@/lib/home-theme";
 
 export default function HomePage() {
@@ -16,6 +16,12 @@ export default function HomePage() {
     setUserName(getUserName());
   }, []);
 
+  function handleLogout() {
+    clearAuth();
+    setLoggedIn(false);
+    setUserName(null);
+  }
+
   return (
     <main className="page-root">
       <div className="content-wrapper">
@@ -25,9 +31,19 @@ export default function HomePage() {
             <p className="app-sub">인지 건강 자가 모니터링</p>
           </div>
           {loggedIn ? (
-            <p className="user-greeting" aria-live="polite">
-              <span>{userName ?? "회원"}</span>님
-            </p>
+            <div className="user-area">
+              <p className="user-greeting" aria-live="polite">
+                <span>{userName ?? "회원"}</span>님
+              </p>
+              <button
+                type="button"
+                className="btn-logout"
+                onClick={handleLogout}
+                aria-label="로그아웃"
+              >
+                로그아웃
+              </button>
+            </div>
           ) : (
             <Link href="/login" className="header-action">
               로그인하기
