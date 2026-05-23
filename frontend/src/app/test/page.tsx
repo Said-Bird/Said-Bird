@@ -68,24 +68,47 @@ export default function TestPage() {
     setTranscript("");
     setDuration(0);
 
-    // Web Speech API (STT)
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      const recog = new SpeechRecognition();
-      recog.lang = "ko-KR";
-      recog.interimResults = false;
-      recog.continuous = true;
-      let full = "";
-      recog.onresult = (e: any) => {
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          if (e.results[i].isFinal) full += e.results[i][0].transcript + " ";
-        }
-        setTranscript(full.trim());
-      };
-      recog.start();
-      recogRef.current = recog;
+    if (!SpeechRecognition) {
+      setError("이 브라우저는 음성 인식을 지원하지 않아요. Chrome을 사용해 주세요.");
+      return;
     }
 
+    const recog = new SpeechRecognition();
+    recog.lang = "ko-KR";
+    recog.interimResults = false;
+    recog.continuous = true;
+    let full = "";
+
+    recog.onresult = (e: any) => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) full += e.results[i][0].transcript + " ";
+      }
+      setTranscript(full.trim());
+    };
+
+    recog.onerror = (e: any) => {
+      if (e.error === "not-allowed") {
+        setError("마이크 권한이 필요해요. 브라우저 설정에서 마이크를 허용해 주세요.");
+        setPhase("ready");
+      } else if (e.error !== "no-speech") {
+        setError(`음성 인식 오류: ${e.error}`);
+        setPhase("ready");
+      }
+    };
+
+    // continuous 모드에서 묵음으로 자동 종료되면 재시작
+    recog.onend = () => {
+      setPhase((current) => {
+        if (current === "recording") {
+          try { recog.start(); } catch { /* 이미 종료 중이면 무시 */ }
+        }
+        return current;
+      });
+    };
+
+    recog.start();
+    recogRef.current = recog;
     setPhase("recording");
   };
 
