@@ -23,6 +23,7 @@ export default function TestPage() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recogRef = useRef<any>(null);
+  const isRecordingRef = useRef(false);
 
   // 이미지 로딩
   useEffect(() => {
@@ -89,30 +90,31 @@ export default function TestPage() {
 
     recog.onerror = (e: any) => {
       if (e.error === "not-allowed") {
+        isRecordingRef.current = false;
         setError("마이크 권한이 필요해요. 브라우저 설정에서 마이크를 허용해 주세요.");
         setPhase("ready");
       } else if (e.error !== "no-speech") {
+        isRecordingRef.current = false;
         setError(`음성 인식 오류: ${e.error}`);
         setPhase("ready");
       }
     };
 
-    // continuous 모드에서 묵음으로 자동 종료되면 재시작
+    // 묵음으로 자동 종료되면 재시작 (continuous 유지)
     recog.onend = () => {
-      setPhase((current) => {
-        if (current === "recording") {
-          try { recog.start(); } catch { /* 이미 종료 중이면 무시 */ }
-        }
-        return current;
-      });
+      if (isRecordingRef.current) {
+        try { recog.start(); } catch { /* ignore */ }
+      }
     };
 
+    isRecordingRef.current = true;
     recog.start();
     recogRef.current = recog;
     setPhase("recording");
   };
 
   const stopRecording = () => {
+    isRecordingRef.current = false;
     recogRef.current?.stop();
     mediaRef.current?.stop();
     setPhase("recorded");
