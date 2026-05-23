@@ -1,7 +1,7 @@
 import json
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
@@ -9,7 +9,7 @@ from app.db.database import get_db
 from app.models.analysis import AnalysisRecord
 from app.models.user import User
 from app.schemas.analysis import AnalysisResult, AnalyzeRequest, AnalyzeResponse
-from app.services.ai_service import analyze_transcript
+from app.services.ai_service import analyze_audio, analyze_transcript
 
 router = APIRouter()
 
@@ -42,7 +42,43 @@ def analyze(
     db.commit()
     db.refresh(record)
 
-    return AnalyzeResponse(record_id=record.id, result=result, created_at=record.created_at)
+    return AnalyzeResponse(record_id=record.id, transcript=body.transcript, result=result, created_at=record.created_at)
+
+
+@router.post("/audio", response_model=AnalyzeResponse)
+async def analyze_audio_endpoint(
+    audio: UploadFile = File(...),
+    image_id: str = Form(None),
+    duration_seconds: float = Form(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    audio_bytes = await audio.read()
+    mime_type = audio.content_type or "audio/webm"
+
+    try:
+        transcript, result = analyze_audio(audio_bytes, mime_type, duration_seconds)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    record = AnalysisRecord(
+        user_id=current_user.id,
+        image_id=image_id,
+        transcript=transcript,
+        total_words=result.total_words,
+        pronoun_ratio=result.pronoun_ratio,
+        speech_rate=result.speech_rate,
+        filler_count=result.filler_count,
+        avg_sentence_length=result.avg_sentence_length,
+        risk_level=result.risk_level,
+        risk_description=result.risk_description,
+        recommended_activities=json.dumps(result.recommended_activities, ensure_ascii=False),
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+
+    return AnalyzeResponse(record_id=record.id, transcript=transcript, result=result, created_at=record.created_at)
 
 
 @router.get("/history", response_model=List[AnalyzeResponse])

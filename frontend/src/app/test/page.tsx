@@ -3,16 +3,17 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { HOME_BASE_STYLES, HOME_FONT_IMPORT } from "@/lib/home-theme";
-import { analyzeTranscript, getMyProfile, getRandomImage } from "@/lib/api";
+import { getMyProfile, getRandomImage } from "@/lib/api";
+import { getToken } from "@/lib/auth";
 
 type Phase = "ready" | "recording" | "recorded" | "submitting" | "done";
 
 const DEFAULT_CATEGORIES = ["동물", "자연", "풍경", "요리"];
+const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
 
 export default function TestPage() {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("ready");
-  const [transcript, setTranscript] = useState("");
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -21,11 +22,6 @@ export default function TestPage() {
   const mediaRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recogRef = useRef<any>(null);
-  const isRecordingRef = useRef(false);
-  const restartCountRef = useRef(0);
-  const finalTextRef = useRef("");
 
   // 이미지 로딩
   useEffect(() => {
@@ -68,104 +64,61 @@ export default function TestPage() {
 
   const startRecording = async () => {
     setError(null);
-    setTranscript("");
     setDuration(0);
+    chunksRef.current = [];
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setError("이 브라우저는 음성 인식을 지원하지 않아요. Chrome을 사용해 주세요.");
-      return;
-    }
-
-    // 마이크 권한 명시적으로 먼저 요청
+    let stream: MediaStream;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((t) => t.stop());
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
       setError("마이크 권한이 필요해요. 브라우저 설정에서 마이크를 허용해 주세요.");
       return;
     }
 
-    const recog = new SpeechRecognition();
-    recog.lang = "ko-KR";
-    recog.interimResults = true;
-    recog.continuous = false;
-    finalTextRef.current = "";
+    const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg", "audio/mp4"]
+      .find((t) => MediaRecorder.isTypeSupported(t)) ?? "";
 
-    recog.onresult = (e: any) => {
-      let interim = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) {
-          finalTextRef.current += e.results[i][0].transcript + " ";
-        } else {
-          interim += e.results[i][0].transcript;
-        }
-      }
-      setTranscript((finalTextRef.current + interim).trim());
-    };
-
-    recog.onerror = (e: any) => {
-      if (e.error === "not-allowed") {
-        isRecordingRef.current = false;
-        setError("마이크 권한이 필요해요. 브라우저 설정에서 마이크를 허용해 주세요.");
-        setPhase("ready");
-      } else if (e.error === "network") {
-        isRecordingRef.current = false;
-        setError("음성 인식에 인터넷 연결이 필요해요. 네트워크를 확인해 주세요.");
-        setPhase("ready");
-      } else if (e.error === "aborted") {
-        restartCountRef.current += 1;
-        if (restartCountRef.current >= 5) {
-          isRecordingRef.current = false;
-          setError("마이크에서 음성을 인식할 수 없어요. 마이크를 확인해 주세요.");
-          setPhase("ready");
-        }
-      } else if (e.error !== "no-speech") {
-        isRecordingRef.current = false;
-        setError(`음성 인식 오류: ${e.error}`);
-        setPhase("ready");
-      }
-    };
-
-    // 한 발화 끝나면 다시 시작 (continuous 대체)
-    recog.onend = () => {
-      if (isRecordingRef.current) {
-        setTimeout(() => {
-          if (isRecordingRef.current) {
-            try { recog.start(); } catch { /* ignore */ }
-          }
-        }, 100);
-      }
-    };
-
-    isRecordingRef.current = true;
-    restartCountRef.current = 0;
-    recog.start();
-
-    recogRef.current = recog;
+    const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+    recorder.start(200);
+    mediaRef.current = recorder;
     setPhase("recording");
   };
 
   const stopRecording = () => {
-    isRecordingRef.current = false;
-    recogRef.current?.stop();
     mediaRef.current?.stop();
+    mediaRef.current?.stream.getTracks().forEach((t) => t.stop());
     setPhase("recorded");
   };
 
   const handleSubmit = async () => {
-    const finalTranscript = finalTextRef.current.trim() || transcript.trim();
-    if (!finalTranscript) {
+    const chunks = chunksRef.current;
+    if (!chunks.length) {
       setError("녹음된 내용이 없어요. 다시 시도해주세요.");
       return;
     }
     setPhase("submitting");
+
+    const mimeType = mediaRef.current?.mimeType || "audio/webm";
+    const blob = new Blob(chunks, { type: mimeType });
+    const ext = mimeType.includes("ogg") ? "ogg" : mimeType.includes("mp4") ? "mp4" : "webm";
+
+    const formData = new FormData();
+    formData.append("audio", blob, `recording.${ext}`);
+    if (imageId) formData.append("image_id", imageId);
+    formData.append("duration_seconds", String(duration));
+
     try {
-      await analyzeTranscript({
-        transcript: finalTranscript,
-        image_id: imageId,
-        duration_seconds: duration,
+      const token = getToken();
+      const res = await fetch(`${API_BASE}/api/v1/analyze/audio`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail ?? "분석 중 오류가 발생했어요.");
+      }
       router.push("/report");
     } catch (e: any) {
       setError(e?.message ?? "분석 중 오류가 발생했어요. 다시 시도해주세요.");
@@ -174,8 +127,7 @@ export default function TestPage() {
   };
 
   const reset = () => {
-    recogRef.current?.stop();
-    setTranscript("");
+    chunksRef.current = [];
     setDuration(0);
     setError(null);
     setPhase("ready");
@@ -254,11 +206,11 @@ export default function TestPage() {
             </div>
           )}
 
-          {/* 트랜스크립트 */}
-          {(phase === "recording" || phase === "recorded") && transcript && (
+          {/* 녹음 완료 안내 */}
+          {phase === "recorded" && (
             <div className="transcript-box" aria-live="polite">
-              <p className="transcript-label">인식된 내용</p>
-              <p className="transcript-text">{transcript}</p>
+              <p className="transcript-label">✅ 녹음 완료</p>
+              <p className="transcript-text">분석 결과 보기를 눌러주세요.</p>
             </div>
           )}
 

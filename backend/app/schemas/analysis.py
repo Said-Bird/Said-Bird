@@ -23,5 +23,6 @@ class AnalysisResult(BaseModel):
 
 class AnalyzeResponse(BaseModel):
     record_id: int
+    transcript: str = ""
     result: AnalysisResult
     created_at: datetime
