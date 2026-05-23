@@ -75,6 +75,15 @@ export default function TestPage() {
       return;
     }
 
+    // 마이크 권한 명시적으로 먼저 요청
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+    } catch {
+      setError("마이크 권한이 필요해요. 브라우저 설정에서 마이크를 허용해 주세요.");
+      return;
+    }
+
     const recog = new SpeechRecognition();
     recog.lang = "ko-KR";
     recog.interimResults = false;
