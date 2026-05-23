@@ -89,7 +89,7 @@ export default function TestPage() {
     const recog = new SpeechRecognition();
     recog.lang = "ko-KR";
     recog.interimResults = true;
-    recog.continuous = true;
+    recog.continuous = false;
     finalTextRef.current = "";
 
     recog.onresult = (e: any) => {
@@ -104,8 +104,6 @@ export default function TestPage() {
       setTranscript((finalTextRef.current + interim).trim());
     };
 
-    recog.onstart = () => { restartCountRef.current = 0; };
-
     recog.onerror = (e: any) => {
       if (e.error === "not-allowed") {
         isRecordingRef.current = false;
@@ -115,23 +113,23 @@ export default function TestPage() {
         isRecordingRef.current = false;
         setError("음성 인식에 인터넷 연결이 필요해요. 네트워크를 확인해 주세요.");
         setPhase("ready");
-      } else if (e.error !== "no-speech" && e.error !== "aborted") {
+      } else if (e.error === "aborted") {
+        restartCountRef.current += 1;
+        if (restartCountRef.current >= 5) {
+          isRecordingRef.current = false;
+          setError("마이크에서 음성을 인식할 수 없어요. 마이크를 확인해 주세요.");
+          setPhase("ready");
+        }
+      } else if (e.error !== "no-speech") {
         isRecordingRef.current = false;
         setError(`음성 인식 오류: ${e.error}`);
         setPhase("ready");
       }
     };
 
-    // 묵음으로 자동 종료되면 재시작 (최대 20회)
+    // 한 발화 끝나면 다시 시작 (continuous 대체)
     recog.onend = () => {
       if (isRecordingRef.current) {
-        if (restartCountRef.current >= 20) {
-          isRecordingRef.current = false;
-          setError("음성 인식이 반복 종료됩니다. 마이크 연결을 확인하거나 다시 시도해 주세요.");
-          setPhase("ready");
-          return;
-        }
-        restartCountRef.current += 1;
         setTimeout(() => {
           if (isRecordingRef.current) {
             try { recog.start(); } catch { /* ignore */ }
@@ -143,6 +141,7 @@ export default function TestPage() {
     isRecordingRef.current = true;
     restartCountRef.current = 0;
     recog.start();
+
     recogRef.current = recog;
     setPhase("recording");
   };
