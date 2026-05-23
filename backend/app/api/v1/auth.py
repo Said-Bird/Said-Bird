@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -17,6 +18,17 @@ router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
 
 
+def serialize_user(user: User) -> dict:
+    return {
+        "id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "age": user.age,
+        "suspicion_level": user.suspicion_level,
+        "interests": json.loads(user.interests) if user.interests else [],
+    }
+
+
 @router.post("/register", response_model=UserProfile)
 def register(body: UserRegister, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == body.email).first():
@@ -28,11 +40,12 @@ def register(body: UserRegister, db: Session = Depends(get_db)):
         hashed_password=hash_password(body.password),
         age=body.age,
         suspicion_level=body.suspicion_level,
+        interests=json.dumps(body.interests, ensure_ascii=False),
     )
     db.add(user)
     db.commit()
     db.refresh(user)
-    return user
+    return UserProfile(**serialize_user(user))
 
 
 @router.post("/login", response_model=TokenResponse)

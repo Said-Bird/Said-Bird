@@ -44,6 +44,7 @@ POST /api/v1/auth/register
 | password | string | ✅ | 비밀번호 |
 | age | integer | ❌ | 나이 |
 | suspicion_level | integer | ❌ | 0=정상, 1=경도, 2=중등도, 3=중증 / 기본값 0 |
+| interests | string[] | ❌ | 관심사 목록 / 기본값 [] / 예: ["동물", "자연", "음악"] |
 
 **Response `200`**
 ```json
@@ -52,7 +53,8 @@ POST /api/v1/auth/register
   "name": "홍길동",
   "email": "hong@example.com",
   "age": 72,
-  "suspicion_level": 0
+  "suspicion_level": 0,
+  "interests": ["동물", "자연", "음악"]
 }
 ```
 
@@ -110,7 +112,8 @@ GET /api/v1/users/me
   "name": "홍길동",
   "email": "hong@example.com",
   "age": 72,
-  "suspicion_level": 0
+  "suspicion_level": 0,
+  "interests": ["동물", "자연", "음악"]
 }
 ```
 

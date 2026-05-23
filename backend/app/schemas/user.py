@@ -1,3 +1,5 @@
+from typing import List
+
 from pydantic import BaseModel, EmailStr
 
 
@@ -7,6 +9,7 @@ class UserRegister(BaseModel):
     password: str
     age: int | None = None
     suspicion_level: int = 0
+    interests: List[str] = []  # 예: ["동물", "자연", "음악"]
 
 
 class UserLogin(BaseModel):
@@ -25,6 +28,7 @@ class UserProfile(BaseModel):
     email: str
     age: int | None
     suspicion_level: int
+    interests: List[str] = []
 
     class Config:
         from_attributes = True

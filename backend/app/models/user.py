@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
 
 from app.db.database import Base
 
@@ -17,5 +17,6 @@ class User(Base):
 
     failed_attempts = Column(Integer, default=0)
     locked_until = Column(DateTime, nullable=True)
+    interests = Column(Text, nullable=True)  # JSON 문자열로 저장
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
