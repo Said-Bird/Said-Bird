@@ -1,7 +1,10 @@
 import json
+import logging
 from typing import List
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
@@ -54,7 +57,14 @@ async def analyze_audio_endpoint(
     current_user: User = Depends(get_current_user),
 ):
     audio_bytes = await audio.read()
-    mime_type = audio.content_type or "audio/webm"
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="오디오 데이터가 없습니다")
+
+    # 코덱 정보 제거 (예: audio/webm;codecs=opus → audio/webm)
+    raw_mime = audio.content_type or "audio/webm"
+    mime_type = raw_mime.split(";")[0].strip()
+
+    logger.info("audio upload: size=%d mime=%s", len(audio_bytes), mime_type)
 
     try:
         transcript, result = analyze_audio(audio_bytes, mime_type, duration_seconds)
