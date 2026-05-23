@@ -3,9 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { HOME_BASE_STYLES, HOME_FONT_IMPORT } from "@/lib/home-theme";
-import { analyzeTranscript } from "@/lib/api";
+import { analyzeTranscript, getMyProfile, getRandomImage } from "@/lib/api";
 
 type Phase = "ready" | "recording" | "recorded" | "submitting" | "done";
+
+const DEFAULT_CATEGORIES = ["동물", "자연", "풍경", "요리"];
 
 export default function TestPage() {
   const router = useRouter();
@@ -13,12 +15,41 @@ export default function TestPage() {
   const [transcript, setTranscript] = useState("");
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageId, setImageId] = useState<string>("unknown");
 
   const mediaRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recogRef = useRef<any>(null);
+
+  // 이미지 로딩
+  useEffect(() => {
+    async function loadImage() {
+      try {
+        const profile = await getMyProfile() as { interests?: string[] };
+        const interests =
+          profile.interests && profile.interests.length > 0
+            ? profile.interests
+            : DEFAULT_CATEGORIES;
+        const category = interests[Math.floor(Math.random() * interests.length)];
+        const img = await getRandomImage(category);
+        setImageUrl(img.url);
+        setImageId(img.image_id);
+      } catch {
+        const category = DEFAULT_CATEGORIES[Math.floor(Math.random() * DEFAULT_CATEGORIES.length)];
+        try {
+          const img = await getRandomImage(category);
+          setImageUrl(img.url);
+          setImageId(img.image_id);
+        } catch {
+          /* 이미지 없이 진행 */
+        }
+      }
+    }
+    loadImage();
+  }, []);
 
   // 타이머
   useEffect(() => {
@@ -73,7 +104,7 @@ export default function TestPage() {
     try {
       await analyzeTranscript({
         transcript,
-        image_id: "nature_01",
+        image_id: imageId,
         duration_seconds: duration,
       });
       router.push("/report");
@@ -122,13 +153,22 @@ export default function TestPage() {
 
         {/* 이미지 영역 */}
         <section className="image-section" aria-label="오늘의 그림">
-          <div className="image-placeholder">
-            <div className="image-placeholder-inner">
-              <span className="image-icon">🖼️</span>
-              <p className="image-placeholder-text">오늘의 그림</p>
-              <p className="image-placeholder-sub">이미지를 불러오는 중이에요</p>
+          {imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imageUrl}
+              alt="오늘의 그림"
+              className="test-image"
+            />
+          ) : (
+            <div className="image-placeholder">
+              <div className="image-placeholder-inner">
+                <span className="image-icon">🖼️</span>
+                <p className="image-placeholder-text">오늘의 그림</p>
+                <p className="image-placeholder-sub">이미지를 불러오는 중이에요</p>
+              </div>
             </div>
-          </div>
+          )}
         </section>
 
         {/* 안내 카드 */}
@@ -265,6 +305,13 @@ export default function TestPage() {
 
         /* 이미지 영역 */
         .image-section { margin-bottom: 20px; }
+        .test-image {
+          width: 100%;
+          aspect-ratio: 4/3;
+          border-radius: 24px;
+          object-fit: cover;
+          display: block;
+        }
         .image-placeholder {
           width: 100%;
           aspect-ratio: 4/3;

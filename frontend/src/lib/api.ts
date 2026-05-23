@@ -113,6 +113,20 @@ export async function analyzeTranscript(payload: AnalyzePayload) {
   });
 }
 
+/* ──────────────────────────────── 이미지 ──────────────────────────────── */
+export interface ImageResponse {
+  image_id: string;
+  url: string;
+  category: string;
+}
+
+export async function getRandomImage(category: string): Promise<ImageResponse> {
+  return apiFetch<ImageResponse>(
+    `/api/v1/images/random?category=${encodeURIComponent(category)}`,
+    { headers: authHeaders() }
+  );
+}
+
 /* ──────────────────────────────── 분석 기록 조회 ──────────────────────────────── */
 export async function getHistory(limit = 10, offset = 0) {
   return apiFetch<any[]>(
